@@ -1,0 +1,23 @@
+{
+  "name": "lfa",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "nodemon index.js test.json 12"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/isterra/lfa.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/isterra/lfa/issues"
+  },
+  "homepage": "https://github.com/isterra/lfa#readme",
+  "dependencies": {
+    "nodemon": "^2.0.12"
+  }
+}
