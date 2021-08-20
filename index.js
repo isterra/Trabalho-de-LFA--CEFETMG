@@ -34,20 +34,39 @@ function setMin(tree, variables) {
             withouthVariable.push(child[i])
         }
     }
+    if(withouthVariable.length==0)
+        return -1
     var min = withouthVariable[0].length
-    for (var i = 1; i < withouthVariable.length; i++) {
-        if (withouthVariable[i] < min) {
-            min = withouthVariable[i].length
+    for (var i = 0; i < withouthVariable.length; i++) {
+        var word = withouthVariable[i]
+        //console.log(word)
+        if (word == "#") {
+            min = 0;
+            break;
+        }
+        if (word.length < min) {
+            min = word.length
         }
     }
     return min
 }
-var existsVariable=function(variables,toTest){
+var canExpand = function(ref,maxLength,variables){
+    var variable = ref.match(RegExp(variables.join("|"),"g"))
+    ref = ref.replace(RegExp(variables.join("|"), "g"), '')
+    var minSize=ref.length
+    
+    if(variable)
+    variable.forEach(v=>{
+        var tree = trees.find(e => e.key == v);
+        if(tree.min!=-1)
+            minSize+=tree.min
+    })
+    return minSize<=maxLength
+}
+var existsVariable = function (variables, toTest) {
     return RegExp(variables.join("|")).test(toTest);
 }
-var firstVar = function(variables,ref){
-    console.log(ref.match(variables.join("|"))[0]);
-}
+
 var createTree = function (rules) {
     rules.forEach(rule => {
         if (!contains(trees, rule[0])) {
@@ -63,57 +82,37 @@ var createTree = function (rules) {
         }
     });
 }
-var sizeWhithoutVariable=function(ref,variables){
-    console.log(ref);
-    variable=variables.join("|")
-    ref = ref.replace(RegExp(variables.join("|"),"g"),'')
-    console.log(ref);
+var sizeWhithoutVariable = function (ref, variables) {
+    variable = variables.join("|")
+    ref = ref.replace(RegExp(variables.join("|"), "g"), '')
     return ref.length
 }
-const vef = (entryPoint,rules,variables)=>{
+const vef = (entryPoint, tree, variables,maxLength) => {
     let result = [];
-    const finds = (ref)=>{     
-        rules.forEach(r=>{
-            if(existsVariable(variables,ref)){
-                var found = ref.match(variables.join("|"))[0]
-                var newF= ref.replace(found,r)
-                newF=newF.replace(/#/g,'')
-                if(sizeWhithoutVariable(newF,variables)<=4)
-                    return finds(newF)
-            }else{
-                if(!result.includes(ref)&&ref.length<=4)
+    const finds = (ref, trees) => {
+        if (existsVariable(variables, ref)) {
+            var found = ref.match(variables.join("|"))[0]
+            var tree = trees.find(e => e.key == found);
+            tree.child.forEach(rule => {
+                var newF = ref.replace(found, rule)
+                newF = newF.replace(/#/g, '')
+                if(canExpand(ref,maxLength,variables))
+                    return finds(newF, trees)
+            })
+        } else {
+            //console.log(ref);
+            if (!result.includes(ref) && ref.length <= maxLength)
                 result.push(ref)
-            }
-        })
-    }
- 
-    finds(entryPoint)
-    console.log(result)
-    for(var i=0;i<result.length;i++)
-        if(result[i]!="#")
-            result[i]=result[i].replace(/#/g,'')
-    console.log(result)
-}
-
-const permutator = (inputArr) => {
-    let result = [];
-    const permute = (arr, m = []) => {
-        if (arr.length === 0) { 
-            console.log(m)
-            result.push(m) }
-        else {
-            for (let i = 0; i < arr.length; i++) {
-                let curr = arr.slice();
-                //console.log("curr"+curr);
-                let next = curr.splice(i, 1);
-                //console.log("next"+next);
-                permute(curr.slice(), m.concat(next))
-            }
         }
     }
-   // permute(inputArr)
-    return result;
+
+    finds(entryPoint, tree)
+    for (var i = 0; i < result.length; i++)
+        if (result[i] != "#")
+            result[i] = result[i].replace(/#/g, '')
+    return result
 }
+
 
 const main = async function () {
     var jsonInput = JSON.parse(await readFile())
@@ -122,19 +121,21 @@ const main = async function () {
     var alphabet = jsonInput.glc[1]
     var rules = jsonInput.glc[2]
     var entryPoint = jsonInput.glc[3]
-    console.log(variables);
-    console.log(alphabet);
-    console.log(rules);
-    console.log(entryPoint);
-    console.log(lengthMax);
+    //console.log(variables);
+    //console.log(alphabet);
+    //console.log(rules);
+    //console.log(entryPoint);
+    //console.log(lengthMax);
     createTree(rules)
-    console.log(trees);
+    //console.log(trees);
     trees.forEach(e => {
         e.min = setMin(e, variables)
     })
-    console.log(trees);
+    //console.log(trees);
+    var hf = vef(entryPoint[0], trees, variables,lengthMax)
+    console.log(hf);
 }
 
-//main()
-vef("P", [ '#','0P1P', '1P0P'],["P"])
+main()
+//vef("P", [ '#','0P1P', '1P0P'],["P"])
 //console.log(sizeWhithoutVariable('0123A0B0C',["A","B","C"]));
