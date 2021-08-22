@@ -1,8 +1,6 @@
 fs = require('fs')
-let trees = []
-var num = ['0', 'P', '1', 'P', '5', 'P']
-var max = 10
-const readFile = async filePath => {
+let groups = []
+const readFile = async function () {
     try {
         const data = await fs.promises.readFile(process.argv[2], 'utf8')
         return data
@@ -11,10 +9,10 @@ const readFile = async filePath => {
         console.log("Erro ao abriri arquivo")
     }
 }
-class Tree {
+class Group {
     constructor(key) {
         this.key = key;
-        this.child = [];
+        this.rules = [];
         this.min = 1;
     }
 }
@@ -26,20 +24,19 @@ function contains(rule, key) {
     }
     return false;
 }
-function setMin(tree, variables) {
-    var child = tree.child
+function setMin(group, variables) {
+    var rules = group.rules
     var withouthVariable = []
-    for (var i = 0; i < child.length; i++) {
-        if (!new RegExp(variables.join("|")).test(child[i])) {
-            withouthVariable.push(child[i])
+    for (var i = 0; i < rules.length; i++) {
+        if (!new RegExp(variables.join("|")).test(rules[i])) {
+            withouthVariable.push(rules[i])
         }
     }
-    if(withouthVariable.length==0)
+    if (withouthVariable.length == 0)
         return -1
     var min = withouthVariable[0].length
     for (var i = 0; i < withouthVariable.length; i++) {
         var word = withouthVariable[i]
-        //console.log(word)
         if (word == "#") {
             min = 0;
             break;
@@ -50,92 +47,84 @@ function setMin(tree, variables) {
     }
     return min
 }
-var canExpand = function(ref,maxLength,variables){
-    var variable = ref.match(RegExp(variables.join("|"),"g"))
-    ref = ref.replace(RegExp(variables.join("|"), "g"), '')
-    var minSize=ref.length
-    
-    if(variable)
-    variable.forEach(v=>{
-        var tree = trees.find(e => e.key == v);
-        if(tree.min!=-1)
-            minSize+=tree.min
-    })
-    return minSize<=maxLength
+/*
+Verifico se ao expandir uma variavel, a palavra minima que ela pode gerar, com o tamanho da palavra já gerada está dentro do tamanho limite.
+*/
+var canExpand = function (word, maxLength, variables) {
+    var variable = word.match(RegExp(variables.join("|"), "g"))
+    word = word.replace(RegExp(variables.join("|"), "g"), '')
+    var minSize = word.length
+
+    if (variable)
+        variable.forEach(v => {
+            var group = groups.find(e => e.key == v);
+            if (group.min != -1)
+                minSize += group.min
+        })
+
+    return minSize <= maxLength
 }
 var existsVariable = function (variables, toTest) {
     return RegExp(variables.join("|")).test(toTest);
 }
 
-var createTree = function (rules) {
+var createGroup = function (rules) {
     rules.forEach(rule => {
-        if (!contains(trees, rule[0])) {
-            var tree = new Tree(rule[0])
-            tree.child.push(rule[1])
-            trees.push(tree)
+        if (!contains(groups, rule[0])) {
+            var group = new Group(rule[0])
+            group.rules.push(rule[1])
+            groups.push(group)
         } else {
-            trees.forEach(t => {
-                if (t.key == rule[0]) {
-                    t.child.push(rule[1])
+            groups.forEach(group => {
+                if (group.key == rule[0]) {
+                    group.rules.push(rule[1])
                 }
             })
         }
     });
 }
-var sizeWhithoutVariable = function (ref, variables) {
-    variable = variables.join("|")
-    ref = ref.replace(RegExp(variables.join("|"), "g"), '')
-    return ref.length
-}
-const vef = (entryPoint, tree, variables,maxLength) => {
+
+const getVariations = (entryPoint, groups, variables, maxLength) => {
     let result = [];
-    const finds = (ref, trees) => {
-        if (existsVariable(variables, ref)) {
-            var found = ref.match(variables.join("|"))[0]
-            var tree = trees.find(e => e.key == found);
-            tree.child.forEach(rule => {
-                var newF = ref.replace(found, rule)
-                newF = newF.replace(/#/g, '')
-                if(canExpand(ref,maxLength,variables))
-                    return finds(newF, trees)
+
+    const finds = (word, groups) => {
+        if (existsVariable(variables, word)) {
+            var found = word.match(variables.join("|"))[0]
+            var group = groups.find(e => e.key == found);
+            group.rules.forEach(rule => {
+                var formatedWord = word.replace(found, rule)
+                formatedWord = formatedWord.replace(/#/g, '')
+                if (canExpand(word, maxLength, variables))
+                    return finds(formatedWord, groups)
             })
         } else {
-            //console.log(ref);
-            if (!result.includes(ref) && ref.length <= maxLength)
-                result.push(ref)
+            if (!result.includes(word) && word.length <= maxLength)
+                result.push(word)
         }
     }
 
-    finds(entryPoint, tree)
-    for (var i = 0; i < result.length; i++)
-        if (result[i] != "#")
-            result[i] = result[i].replace(/#/g, '')
+    finds(entryPoint, groups)
+    var index = result.indexOf('')
+    index >= 0 ? result[index] = "#" : null
     return result
 }
 
 
 const main = async function () {
     var jsonInput = JSON.parse(await readFile())
-    var lengthMax = process.argv[3]
+    var maxLength = process.argv[3]
     var variables = jsonInput.glc[0]
-    var alphabet = jsonInput.glc[1]
     var rules = jsonInput.glc[2]
     var entryPoint = jsonInput.glc[3]
-    //console.log(variables);
-    //console.log(alphabet);
-    //console.log(rules);
-    //console.log(entryPoint);
-    //console.log(lengthMax);
-    createTree(rules)
-    //console.log(trees);
-    trees.forEach(e => {
+    createGroup(rules)
+    groups.forEach(e => {
         e.min = setMin(e, variables)
     })
-    //console.log(trees);
-    var hf = vef(entryPoint[0], trees, variables,lengthMax)
-    console.log(hf);
+    var variations = getVariations(entryPoint[0], groups, variables, maxLength)
+    if (variations) {
+        variations.sort((a, b) => a.length - b.length)
+        variations.forEach(v => console.log(v))
+    }
 }
 
 main()
-//vef("P", [ '#','0P1P', '1P0P'],["P"])
-//console.log(sizeWhithoutVariable('0123A0B0C',["A","B","C"]));
